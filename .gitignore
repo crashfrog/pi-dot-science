@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.lock
+.DS_Store
+.env
+.env.local
+.pi-science/sessions/
+pi-sci
