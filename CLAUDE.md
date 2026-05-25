@@ -178,3 +178,17 @@ These are *features*, not bugs—they build trust in AI-assisted data science.
 - [Pi Coding Agent](https://github.com/earendil-works/pi)
 - [Apache Parquet](https://parquet.apache.org/)
 - Terminal image protocols: [Kitty Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/), [iTerm2 Inline Images](https://iterm2.com/documentation-images.html), Sixel
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
