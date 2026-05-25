@@ -111,6 +111,26 @@ The system prompt encodes hard guardrails:
 
 The prompt is the primary enforcement mechanism (plus verification loops as safety net).
 
+### Terminal Image Rendering
+
+**Primary target**: Windows Terminal on WSL2 Debian (user's main platform).
+
+**Architecture**:
+- **Sixel protocol** (raster): Primary rendering method (Windows Terminal native support)
+- **Kitty graphics protocol** (raster + vector): Alternative for power users running Kitty
+- **Fallback links** (file system navigation): When protocols unavailable
+  - WSL: Windows path (`C:\Users\...`) + HTTP localhost server option
+  - Native Linux: `file://` URLs + HTTP localhost server option
+  - macOS: `file://` URLs (auto-open in Preview)
+
+**Configuration**:
+- **Global**: `~/.pi.sci/config.json` stores platform (`wsl`, `native-linux`, `macos`) and image size limits
+- **Detection**: Platform auto-detected on first run via heuristics; user can override
+- **Caching**: Terminal capabilities cached in `~/.pi.sci/terminal-capabilities-cache.json` (keyed by `$TERM`)
+- **Per-project**: `.pi.sci/settings.local.json` (git-ignored) can override global settings
+
+**Image format**: PNG (1024×768 default, configurable). Sixel-native, universal support.
+
 ## Implementation Roadmap
 
 ### Phase 1: Foundation (Current)

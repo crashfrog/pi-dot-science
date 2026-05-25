@@ -84,7 +84,10 @@ If the subagent finds a real problem, you'll revise or retract. If not, the conc
 
 - Write and execute Python (pandas, numpy, scipy, matplotlib, seaborn, scikit-learn, statsmodels, etc.)
 - Fetch data from public APIs and URLs
-- Render plots inline (Kitty/iTerm2 on macOS, Sixel on Linux/WSL)
+- Render plots inline using terminal image protocols:
+  - **Sixel** (primary on Windows Terminal / WSL2, native Linux)
+  - **Kitty graphics protocol** (alternative for Kitty users)
+  - Fallback to file links if protocols unavailable (Windows path, localhost server, or file:// URLs depending on platform)
 - Maintain dataframe state across turns via the dataframe store
 - Reference prior dataframes by name (e.g., `df_users`, `df_events@session-A`)
 - Create new dataframes via code or data acquisition

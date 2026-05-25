@@ -60,8 +60,13 @@ If a question can't be answered from the project's datastore, the agent treats i
 
 ### Terminal Rendering
 
-- **Matplotlib/seaborn plots** render inline using Kitty/iTerm2 protocols (macOS) or Sixel (Linux/WSL)
+- **Primary target**: Windows Terminal on WSL2 (Debian) with Sixel support
+- **Matplotlib/seaborn plots** render inline:
+  - **Sixel** (Windows Terminal, native Linux, most compatible)
+  - **Kitty graphics protocol** (alternative for Kitty users)
+  - **Fallback**: Clickable file links (Windows path + HTTP server on WSL, file:// URLs on native Linux/macOS)
 - **Dataframe previews** show schema, sample rows, and source info
+- **Capability detection**: Auto-detects terminal support and caches results per session
 - All output is logged to session history for reproducibility
 
 ## Architecture
