@@ -142,6 +142,48 @@ describe("DataframeStore", () => {
     });
   });
 
+  describe("git integration", () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pi-science-git-"));
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("saveToDisk initializes a git repo in the store dir if none exists", async () => {
+      store.registerDataframe("users", entry);
+      await store.saveToDisk(tmpDir);
+      expect(existsSync(join(tmpDir, ".git"))).toBe(true);
+    });
+
+    it("saveToDisk creates a git commit after saving", async () => {
+      store.registerDataframe("users", entry);
+      await store.saveToDisk(tmpDir);
+      const { stdout } = Bun.spawnSync(["git", "log", "--oneline"], { cwd: tmpDir });
+      const log = stdout.toString();
+      expect(log.trim().length).toBeGreaterThan(0);
+    });
+
+    it("commit message includes dataframe names", async () => {
+      store.registerDataframe("users", { ...entry, source: "https://example.com" });
+      await store.saveToDisk(tmpDir);
+      const { stdout } = Bun.spawnSync(["git", "log", "--oneline"], { cwd: tmpDir });
+      expect(stdout.toString()).toContain("users");
+    });
+
+    it("successive saves produce successive commits", async () => {
+      store.registerDataframe("users", entry);
+      await store.saveToDisk(tmpDir);
+      store.registerDataframe("events", { ...entry, name: "events" });
+      await store.saveToDisk(tmpDir);
+      const { stdout } = Bun.spawnSync(["git", "log", "--oneline"], { cwd: tmpDir });
+      expect(stdout.toString().trim().split("\n")).toHaveLength(2);
+    });
+  });
+
   describe("session namespacing", () => {
     it("getSessionId returns a stable ID for the store's lifetime", () => {
       const id = store.getSessionId();

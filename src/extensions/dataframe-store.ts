@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 export interface DataframeEntry {
@@ -104,10 +104,26 @@ export class DataframeStore {
     return join(process.cwd(), ".pi-science", "dataframe-store");
   }
 
+  private git(args: string[], cwd: string): void {
+    Bun.spawnSync(["git", ...args], { cwd });
+  }
+
+  private ensureGitRepo(dir: string): void {
+    if (!existsSync(join(dir, ".git"))) {
+      this.git(["init"], dir);
+      this.git(["config", "user.email", "pi-science@local"], dir);
+      this.git(["config", "user.name", "pi.science"], dir);
+    }
+  }
+
   async saveToDisk(dir?: string): Promise<void> {
     const target = dir ?? this.defaultStoreDir();
     mkdirSync(target, { recursive: true });
+    this.ensureGitRepo(target);
     await Bun.write(join(target, "metadata.json"), this.exportState());
+    const names = this.listDataframes().map(e => e.name).join(", ") || "empty store";
+    this.git(["add", "metadata.json"], target);
+    this.git(["commit", "--allow-empty-message", "-m", `Update dataframe store: ${names}`], target);
   }
 
   async loadFromDisk(dir?: string): Promise<void> {
