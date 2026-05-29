@@ -1,6 +1,5 @@
-// Dataframe store extension for pi.science
-// Maintains state across turns via a lightweight registry of named dataframes with schema summaries
-// Each entry tracks: name, shape, columns, dtypes, and a sample row for context
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 export interface DataframeEntry {
   name: string;
@@ -13,12 +12,49 @@ export interface DataframeEntry {
 export class DataframeStore {
   private store: Map<string, DataframeEntry> = new Map();
 
-  // TODO: Implement registerDataframe(name, entry): Register a dataframe
-  // TODO: Implement getDataframe(name): Retrieve schema without loading full data
-  // TODO: Implement listDataframes(): Show all registered dataframes
-  // TODO: Implement clearDataframe(name): Remove a dataframe from store
-  // TODO: Implement exportState(): Serialize store for context injection
-  // TODO: Implement importState(json): Restore store from serialized state
+  registerDataframe(name: string, entry: DataframeEntry): void {
+    this.store.set(name, entry);
+  }
+
+  getDataframe(name: string): DataframeEntry | undefined {
+    return this.store.get(name);
+  }
+
+  listDataframes(): DataframeEntry[] {
+    return Array.from(this.store.values());
+  }
+
+  clearDataframe(name: string): void {
+    this.store.delete(name);
+  }
+
+
+  exportState(): string {
+    return JSON.stringify(Object.fromEntries(this.store));
+  }
+
+  importState(json: string): void {
+    const entries = JSON.parse(json) as Record<string, DataframeEntry>;
+    for (const [name, entry] of Object.entries(entries)) {
+      this.store.set(name, entry);
+    }
+  }
+
+  private defaultStoreDir(): string {
+    return join(process.cwd(), ".pi-science", "dataframe-store");
+  }
+
+  async saveToDisk(dir?: string): Promise<void> {
+    const target = dir ?? this.defaultStoreDir();
+    mkdirSync(target, { recursive: true });
+    await Bun.write(join(target, "metadata.json"), this.exportState());
+  }
+
+  async loadFromDisk(dir?: string): Promise<void> {
+    const target = dir ?? this.defaultStoreDir();
+    const json = await Bun.file(join(target, "metadata.json")).text();
+    this.importState(json);
+  }
 }
 
 export default DataframeStore;
