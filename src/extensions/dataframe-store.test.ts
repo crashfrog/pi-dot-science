@@ -142,6 +142,52 @@ describe("DataframeStore", () => {
     });
   });
 
+  describe("transformation code", () => {
+    it("registerDataframe stores transformation code verbatim", () => {
+      const code = "df = df[df['age'] > 18]";
+      store.registerDataframe("users", { ...entry, transformations: [code] });
+      expect(store.getDataframe("users")?.transformations?.[0]).toBe(code);
+    });
+
+    it("replayTransformations returns transformation code in registration order", () => {
+      const t1 = "df = pd.read_csv('data.csv')";
+      const t2 = "df = df.dropna()";
+      const t3 = "df = df[df['age'] > 18]";
+      store.registerDataframe("users", { ...entry, transformations: [t1, t2, t3] });
+      expect(store.replayTransformations("users")).toEqual([t1, t2, t3]);
+    });
+
+    it("replayTransformations returns empty array for dataframe with no transformations", () => {
+      store.registerDataframe("users", entry);
+      expect(store.replayTransformations("users")).toEqual([]);
+    });
+
+    it("replayTransformations returns empty array for unknown name", () => {
+      expect(store.replayTransformations("ghost")).toEqual([]);
+    });
+
+    it("transformation code is preserved verbatim including whitespace and newlines", () => {
+      const code = "df = (\n  df\n  .dropna()\n  .reset_index(drop=True)\n)";
+      store.registerDataframe("users", { ...entry, transformations: [code] });
+      expect(store.replayTransformations("users")[0]).toBe(code);
+    });
+
+    it("transformation code survives saveToDisk/loadFromDisk round-trip", async () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "pi-science-tx-"));
+      try {
+        const t1 = "df = pd.read_csv('data.csv')";
+        const t2 = "df = df.dropna()";
+        store.registerDataframe("users", { ...entry, transformations: [t1, t2] });
+        await store.saveToDisk(tmpDir);
+        const other = new DataframeStore();
+        await other.loadFromDisk(tmpDir);
+        expect(other.replayTransformations("users")).toEqual([t1, t2]);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("provenance", () => {
     it("registerDataframe auto-stamps an ISO 8601 timestamp", () => {
       const before = new Date().toISOString();

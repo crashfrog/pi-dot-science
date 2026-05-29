@@ -9,8 +9,9 @@ export interface DataframeEntry {
   sampleRow?: Record<string, unknown>;
   // Provenance fields
   source?: string;
-  timestamp?: string;    // ISO 8601; auto-set on registerDataframe if absent
-  immutable?: boolean;   // prevents overwrite when true
+  timestamp?: string;       // ISO 8601; auto-set on registerDataframe if absent
+  immutable?: boolean;      // prevents overwrite when true
+  transformations?: string[]; // executable code chain, stored verbatim
 }
 
 export interface ProvenanceRecord {
@@ -46,6 +47,10 @@ export class DataframeStore {
       timestamp: entry.timestamp!,
       immutable: entry.immutable ?? false,
     };
+  }
+
+  replayTransformations(name: string): string[] {
+    return this.store.get(name)?.transformations ?? [];
   }
 
   listDataframes(): DataframeEntry[] {
