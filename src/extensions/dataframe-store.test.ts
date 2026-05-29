@@ -142,6 +142,53 @@ describe("DataframeStore", () => {
     });
   });
 
+  describe("session namespacing", () => {
+    it("getSessionId returns a stable ID for the store's lifetime", () => {
+      const id = store.getSessionId();
+      expect(typeof id).toBe("string");
+      expect(id.length).toBeGreaterThan(0);
+      expect(store.getSessionId()).toBe(id);
+    });
+
+    it("setSessionNamespace changes the active namespace", () => {
+      store.setSessionNamespace("session-A");
+      store.registerDataframe("users", entry);
+      // key in store should be namespaced
+      expect(store.getDataframe("users@session-A")).toMatchObject(entry);
+    });
+
+    it("getDataframe with plain name resolves session namespace first", () => {
+      store.setSessionNamespace("session-A");
+      store.registerDataframe("users", entry);
+      expect(store.getDataframe("users")).toMatchObject(entry);
+    });
+
+    it("getDataframe falls back to main namespace when session key absent", () => {
+      // register in main (no namespace)
+      store.registerDataframe("users@main", entry);
+      store.setSessionNamespace("session-A");
+      expect(store.getDataframe("users")).toMatchObject(entry);
+    });
+
+    it("getDataframe prefers session namespace over main", () => {
+      const mainEntry: DataframeEntry = { ...entry, shape: [100, 5] };
+      const sessionEntry: DataframeEntry = { ...entry, shape: [200, 5] };
+      store.registerDataframe("users@main", mainEntry);
+      store.setSessionNamespace("session-A");
+      store.registerDataframe("users", sessionEntry);
+      expect(store.getDataframe("users")?.shape).toEqual([200, 5]);
+    });
+
+    it("listDataframes includes both session and main dataframes", () => {
+      store.registerDataframe("users@main", entry);
+      store.setSessionNamespace("session-A");
+      store.registerDataframe("events", { ...entry, name: "events" });
+      const names = store.listDataframes().map(e => e.name);
+      expect(names).toContain("users");
+      expect(names).toContain("events");
+    });
+  });
+
   describe("transformation code", () => {
     it("registerDataframe stores transformation code verbatim", () => {
       const code = "df = df[df['age'] > 18]";

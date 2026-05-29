@@ -9,8 +9,8 @@ export interface DataframeEntry {
   sampleRow?: Record<string, unknown>;
   // Provenance fields
   source?: string;
-  timestamp?: string;       // ISO 8601; auto-set on registerDataframe if absent
-  immutable?: boolean;      // prevents overwrite when true
+  timestamp?: string;         // ISO 8601; auto-set on registerDataframe if absent
+  immutable?: boolean;        // prevents overwrite when true
   transformations?: string[]; // executable code chain, stored verbatim
 }
 
@@ -22,13 +22,29 @@ export interface ProvenanceRecord {
 
 export class DataframeStore {
   private store: Map<string, DataframeEntry> = new Map();
+  private readonly sessionId: string = crypto.randomUUID();
+  private namespace: string | null = null;
+
+  getSessionId(): string {
+    return this.sessionId;
+  }
+
+  setSessionNamespace(namespace: string): void {
+    this.namespace = namespace;
+  }
+
+  private resolveKey(name: string): string {
+    if (name.includes("@")) return name;
+    return this.namespace ? `${name}@${this.namespace}` : name;
+  }
 
   registerDataframe(name: string, entry: DataframeEntry): void {
-    const existing = this.store.get(name);
+    const key = this.resolveKey(name);
+    const existing = this.store.get(key);
     if (existing?.immutable) {
       throw new Error(`Dataframe "${name}" is immutable and cannot be overwritten`);
     }
-    this.store.set(name, {
+    this.store.set(key, {
       ...entry,
       timestamp: entry.timestamp ?? new Date().toISOString(),
       immutable: entry.immutable ?? false,
@@ -36,11 +52,18 @@ export class DataframeStore {
   }
 
   getDataframe(name: string): DataframeEntry | undefined {
+    if (name.includes("@")) return this.store.get(name);
+    if (this.namespace) {
+      const sessionKey = `${name}@${this.namespace}`;
+      if (this.store.has(sessionKey)) return this.store.get(sessionKey);
+    }
+    const mainKey = `${name}@main`;
+    if (this.store.has(mainKey)) return this.store.get(mainKey);
     return this.store.get(name);
   }
 
   getProvenance(name: string): ProvenanceRecord | undefined {
-    const entry = this.store.get(name);
+    const entry = this.getDataframe(name);
     if (!entry) return undefined;
     return {
       source: entry.source,
@@ -50,15 +73,20 @@ export class DataframeStore {
   }
 
   replayTransformations(name: string): string[] {
-    return this.store.get(name)?.transformations ?? [];
+    return this.getDataframe(name)?.transformations ?? [];
   }
 
   listDataframes(): DataframeEntry[] {
-    return Array.from(this.store.values());
+    return Array.from(this.store.values()).map(e => ({
+      ...e,
+      name: e.name.includes("@") ? e.name.split("@")[0] : e.name,
+    }));
   }
 
   clearDataframe(name: string): void {
-    this.store.delete(name);
+    const key = this.resolveKey(name);
+    this.store.delete(key);
+    if (key !== name) this.store.delete(name);
   }
 
   exportState(): string {
