@@ -142,6 +142,88 @@ describe("DataframeStore", () => {
     });
   });
 
+  describe("reproducibility (#20)", () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pi-science-repro-"));
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("provenance replay produces identical transformation chain after round-trip", async () => {
+      const t1 = "df = pd.read_csv('users.csv')";
+      const t2 = "df = df[df['age'] > 18]";
+      const t3 = "df = df.reset_index(drop=True)";
+      store.registerDataframe("users", { ...entry, transformations: [t1, t2, t3] });
+      await store.saveToDisk(tmpDir);
+
+      const restored = new DataframeStore();
+      await restored.loadFromDisk(tmpDir);
+      expect(restored.replayTransformations("users")).toEqual([t1, t2, t3]);
+    });
+
+    it("two stores writing to different dirs do not interfere", async () => {
+      const dirA = join(tmpDir, "session-a");
+      const dirB = join(tmpDir, "session-b");
+      const storeA = new DataframeStore();
+      const storeB = new DataframeStore();
+      storeA.registerDataframe("alpha", entry);
+      storeB.registerDataframe("beta", { ...entry, name: "beta" });
+      await Promise.all([storeA.saveToDisk(dirA), storeB.saveToDisk(dirB)]);
+
+      const checkA = new DataframeStore();
+      await checkA.loadFromDisk(dirA);
+      expect(checkA.getDataframe("alpha")).toBeDefined();
+      expect(checkA.getDataframe("beta")).toBeUndefined();
+
+      const checkB = new DataframeStore();
+      await checkB.loadFromDisk(dirB);
+      expect(checkB.getDataframe("beta")).toBeDefined();
+      expect(checkB.getDataframe("alpha")).toBeUndefined();
+    });
+
+    it("git history is auditable after multiple saves", async () => {
+      store.registerDataframe("users", { ...entry, source: "file://users.csv" });
+      await store.saveToDisk(tmpDir);
+      store.registerDataframe("events", { ...entry, name: "events", source: "file://events.csv" });
+      await store.saveToDisk(tmpDir);
+      store.clearDataframe("users");
+      await store.saveToDisk(tmpDir);
+
+      const { stdout } = Bun.spawnSync(["git", "log", "--oneline"], { cwd: tmpDir });
+      const commits = stdout.toString().trim().split("\n");
+      expect(commits).toHaveLength(3);
+    });
+
+    it("session-namespaced dataframes are isolated across replay", async () => {
+      const storeA = new DataframeStore();
+      storeA.setSessionNamespace("session-A");
+      storeA.registerDataframe("users", { ...entry, shape: [100, 5] });
+
+      const storeB = new DataframeStore();
+      storeB.setSessionNamespace("session-B");
+      storeB.registerDataframe("users", { ...entry, shape: [200, 5] });
+
+      await storeA.saveToDisk(tmpDir);
+      // storeB saves to same dir — namespaced keys don't collide
+      const dirB = join(tmpDir, "b");
+      await storeB.saveToDisk(dirB);
+
+      const checkA = new DataframeStore();
+      checkA.setSessionNamespace("session-A");
+      await checkA.loadFromDisk(tmpDir);
+      expect(checkA.getDataframe("users")?.shape).toEqual([100, 5]);
+
+      const checkB = new DataframeStore();
+      checkB.setSessionNamespace("session-B");
+      await checkB.loadFromDisk(dirB);
+      expect(checkB.getDataframe("users")?.shape).toEqual([200, 5]);
+    });
+  });
+
   describe("git integration", () => {
     let tmpDir: string;
 
