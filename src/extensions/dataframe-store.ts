@@ -7,17 +7,45 @@ export interface DataframeEntry {
   columns: string[];
   dtypes: Record<string, string>;
   sampleRow?: Record<string, unknown>;
+  // Provenance fields
+  source?: string;
+  timestamp?: string;    // ISO 8601; auto-set on registerDataframe if absent
+  immutable?: boolean;   // prevents overwrite when true
+}
+
+export interface ProvenanceRecord {
+  source?: string;
+  timestamp: string;
+  immutable: boolean;
 }
 
 export class DataframeStore {
   private store: Map<string, DataframeEntry> = new Map();
 
   registerDataframe(name: string, entry: DataframeEntry): void {
-    this.store.set(name, entry);
+    const existing = this.store.get(name);
+    if (existing?.immutable) {
+      throw new Error(`Dataframe "${name}" is immutable and cannot be overwritten`);
+    }
+    this.store.set(name, {
+      ...entry,
+      timestamp: entry.timestamp ?? new Date().toISOString(),
+      immutable: entry.immutable ?? false,
+    });
   }
 
   getDataframe(name: string): DataframeEntry | undefined {
     return this.store.get(name);
+  }
+
+  getProvenance(name: string): ProvenanceRecord | undefined {
+    const entry = this.store.get(name);
+    if (!entry) return undefined;
+    return {
+      source: entry.source,
+      timestamp: entry.timestamp!,
+      immutable: entry.immutable ?? false,
+    };
   }
 
   listDataframes(): DataframeEntry[] {
@@ -27,7 +55,6 @@ export class DataframeStore {
   clearDataframe(name: string): void {
     this.store.delete(name);
   }
-
 
   exportState(): string {
     return JSON.stringify(Object.fromEntries(this.store));
