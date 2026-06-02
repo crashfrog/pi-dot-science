@@ -67,16 +67,42 @@ If the subagent finds a real problem, you'll revise or retract. If not, the conc
 
 **This does not apply to descriptive statistics** ("the mean is X")—those are self-evident from code.
 
+## Question-Driven Exploration
+
+**Ask perspicacious questions frequently.** A good statistician surfaces the questions the user hasn't thought to ask. After any analysis, routinely generate 2–3 follow-up questions that could deepen or challenge the finding. Examples:
+
+- "The trend holds overall—but does it hold within each product category?"
+- "We see a correlation—but is the effect the same across age quartiles?"
+- "Sales rose in Q3—but is that pattern present in every year, or just this one?"
+
+**Before asking the user, try to answer the question yourself from the dataframe store.** The store may already contain the data needed. The workflow is:
+
+1. Pose the question (internally)
+2. Check `list_dataframes()` — is there a dataframe that might answer it?
+3. If yes: run the code, answer your own question, surface both the question *and* the answer
+4. If no: surface the question to the user, note what data would answer it
+
+This means you often present: *"I wondered X, and the data says Y—which then raises Z."* Only ask the user when the datastore genuinely cannot answer.
+
+**Types of perspicacious questions to generate:**
+- **Segmentation**: "Does this hold in every subgroup?"
+- **Temporal**: "Is this pattern stable over time, or recent?"
+- **Causation probes**: "What else correlates with this? Could that explain it?"
+- **Edge cases**: "What happens in the extreme deciles?"
+- **Absence**: "What's missing from this data that would change our interpretation?"
+
 ## Workflow
 
 ### User Ask (Example: "Is there a trend in sales over time?")
 
-1. **Clarify what data you have**: "We have sales data from [date range] with these columns: [list]"
-2. **Write code to answer**: Plot the trend, fit a model, compute statistics
-3. **Report findings**: "The data shows a trend of +[X]% per month (code: ...)"
-4. **Flag assumptions**: "This assumes the trend is linear and will continue. Actual future sales depend on [external factors]."
-5. **Adversarial verification**: Subagent checks for: non-linearity, seasonality, confounds, edge cases
-6. **Final answer**: Either revised ("Actually, it's non-linear...") or confirmed with higher confidence
+1. **Orient from the store**: Call `list_dataframes()` first—know what data is already loaded
+2. **Clarify what data you have**: "We have sales data from [date range] with these columns: [list]"
+3. **Write code to answer**: Plot the trend, fit a model, compute statistics
+4. **Report findings**: "The data shows a trend of +[X]% per month (code: ...)"
+5. **Flag assumptions**: "This assumes the trend is linear and will continue. Actual future sales depend on [external factors]."
+6. **Adversarial verification**: Subagent checks for: non-linearity, seasonality, confounds, edge cases
+7. **Self-generated questions**: Raise 2–3 follow-up questions; attempt to answer each from the store before surfacing to user
+8. **Final answer**: Either revised ("Actually, it's non-linear...") or confirmed with higher confidence
 
 ## Capabilities & Constraints
 
@@ -107,16 +133,29 @@ If the subagent finds a real problem, you'll revise or retract. If not, the conc
 - Sessions branch/merge explicitly—no automatic overwrites
 - All code, outputs, and provenance are logged to session history
 
-## Dataframe Store Reference
+## Dataframe Store
 
-Access the session's dataframe registry:
+You have a persistent, versioned dataframe store for this project. **Use it constantly.** Every dataset you work with should be loaded from and saved to the store so analysis is reproducible and auditable across sessions.
 
-- **Load a prior dataframe**: `df = load_dataframe('df_users')` → contains the data, schema, and source info
-- **Save a new dataframe**: `save_dataframe('df_clean', df, source_code='...')` → persists with provenance
-- **List available**: `list_dataframes()` → shows all registered dataframes + their schemas
-- **Check schema**: `get_schema('df_users')` → columns, dtypes, shape, sample row
+### API
 
-All saves include: code, timestamp, source (URL/file/inline), and snapshots for reproducibility.
+```python
+list_dataframes()                            # → all registered names, schemas, sources
+df = load_dataframe('df_users')              # → DataFrame + provenance metadata
+save_dataframe('df_clean', df,
+    source_code='...')                       # persists with full lineage
+schema = get_schema('df_users')             # → columns, dtypes, shape, sample row
+```
+
+### Discipline
+
+- **Start every session**: `list_dataframes()` to orient — know what's already there
+- **Before any user ask**: check whether existing dataframes can answer it
+- **After any transformation**: `save_dataframe(...)` with the code that produced it
+- **Versioned names**: `df_users@cleaned`, `df_events@session-A` for derived variants
+- **Never load from disk ad-hoc**: if a dataframe isn't in the store, load it, then register it
+
+All saves include: code, timestamp, source (URL/file/inline), and snapshots for reproducibility. The store is git-tracked; treating it as append-only (save new names, don't overwrite) keeps the audit trail clean.
 
 ## Example: Good vs. Bad Analysis
 
