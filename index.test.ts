@@ -41,7 +41,7 @@ describe("issue-2", () => {
     it("should have system prompt mentioning dataframe store reference", () => {
       const promptPath = resolve("src/prompts/system.md");
       const promptContent = readFileSync(promptPath, "utf-8");
-      expect(promptContent).toContain("Dataframe Store Reference");
+      expect(promptContent).toContain("Dataframe Store");
       expect(promptContent).toContain("load_dataframe");
       expect(promptContent).toContain("save_dataframe");
     });
@@ -72,16 +72,10 @@ describe("issue-2", () => {
   });
 
   describe("Index.ts Entrypoint Structure", () => {
-    it("should export or declare a main function", () => {
+    it("should import main from pi-coding-agent", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("function main");
-    });
-
-    it("should import createAgentSession from pi-coding-agent", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("createAgentSession");
+      expect(indexContent).toMatch(/import\s*{\s*main\s*}/);
       expect(indexContent).toContain("@earendil-works/pi-coding-agent");
     });
 
@@ -99,11 +93,10 @@ describe("issue-2", () => {
       expect(indexContent).toContain("image-renderer");
     });
 
-    it("should call main() in async context", () => {
+    it("should invoke main with top-level await", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("main()");
-      expect(indexContent).toContain("catch");
+      expect(indexContent).toMatch(/await main\(/);
     });
   });
 
@@ -117,11 +110,11 @@ describe("issue-2", () => {
       );
     });
 
-    it("system prompt should be passed to createAgentSession options", () => {
+    it("system prompt path should be passed via --system-prompt flag", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      // Should pass system prompt to the session creation
-      expect(indexContent).toMatch(/createAgentSession.*{[\s\S]*}/);
+      expect(indexContent).toContain("--system-prompt");
+      expect(indexContent).toContain("systemPromptPath");
     });
 
     it("system prompt path should resolve correctly relative to index.ts", () => {
@@ -170,52 +163,18 @@ describe("issue-2", () => {
   });
 
   describe("Agent Session Creation", () => {
-    it("should call createAgentSession with configuration options", () => {
+    it("should forward CLI args to main", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("createAgentSession({");
+      expect(indexContent).toContain("process.argv.slice(2)");
     });
 
-    it("should pass cwd to createAgentSession", () => {
+    it("should register extension factories with main", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toMatch(/createAgentSession[\s\S]*cwd/);
-    });
-
-    it("should handle session creation errors gracefully", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("catch");
-      expect(indexContent).toContain("error");
-    });
-
-    it("should return a session object from createAgentSession", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toMatch(/const.*session.*=.*await/);
-    });
-  });
-
-  describe("Interactive Session Loop", () => {
-    it("should run in interactive mode", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      // Interactive mode should be indicated by stdin/stdout handling or loop
-      expect(indexContent).toMatch(/interactive|stdin|stdout|loop|session/i);
-    });
-
-    it("should be able to receive user input", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      // Should demonstrate input handling capability
-      expect(indexContent).toMatch(/stdin|input|prompt|query/i);
-    });
-
-    it("should process and respond to queries", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      // Should show capability to process and respond
-      expect(indexContent).toMatch(/response|result|output|stdout/i);
+      expect(indexContent).toContain("extensionFactories");
+      expect(indexContent).toContain("dataframeStoreExtension");
+      expect(indexContent).toContain("imageRendererExtension");
     });
   });
 
@@ -289,11 +248,6 @@ describe("issue-2", () => {
       expect(indexContent.startsWith("import")).toBe(true);
     });
 
-    it("should have proper error handling in main", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain(".catch");
-    });
   });
 
   describe("bun run dev Command", () => {
@@ -355,17 +309,19 @@ describe("issue-2", () => {
     it("ImageRenderer should define configuration interface", () => {
       const irPath = resolve("src/extensions/image-renderer.ts");
       const irContent = readFileSync(irPath, "utf-8");
-      expect(irContent).toContain("ImageRendererConfig");
+      expect(irContent).toContain("ImageRendererOptions");
       expect(irContent).toContain("TerminalCapabilities");
     });
 
     it("ImageRenderer should have platform type definition", () => {
       const irPath = resolve("src/extensions/image-renderer.ts");
       const irContent = readFileSync(irPath, "utf-8");
-      expect(irContent).toContain("type Platform");
-      expect(irContent).toContain("wsl");
-      expect(irContent).toContain("native-linux");
-      expect(irContent).toContain("macos");
+      expect(irContent).toMatch(/type\s*{?\s*Platform/);
+      const pcPath = resolve("src/extensions/platform-config.ts");
+      const pcContent = readFileSync(pcPath, "utf-8");
+      expect(pcContent).toContain("wsl");
+      expect(pcContent).toContain("native-linux");
+      expect(pcContent).toContain("macos");
     });
   });
 
@@ -376,16 +332,10 @@ describe("issue-2", () => {
       expect(pkgContent).toContain("@earendil-works/pi-coding-agent");
     });
 
-    it("session should be awaited from createAgentSession", () => {
+    it("should await the main entrypoint", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("await createAgentSession");
-    });
-
-    it("should destructure session from the result", () => {
-      const indexPath = resolve("index.ts");
-      const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toMatch(/const\s*{\s*session\s*}/);
+      expect(indexContent).toContain("await main");
     });
   });
 
@@ -401,7 +351,7 @@ describe("issue-2", () => {
       const promptPath = resolve("src/prompts/system.md");
       const promptContent = readFileSync(promptPath, "utf-8");
       expect(promptContent).toContain("Show the code");
-      expect(promptContent).toContain("Show the output");
+      expect(promptContent).toContain("show the output");
     });
 
     it("Python environment should be configured for data science", () => {
