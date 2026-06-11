@@ -25,13 +25,16 @@ export class ConfigManager {
   // - Check /proc/version for WSL/Linux indicators
   // - Check uname -s for Darwin (macOS)
   detectPlatform(procVersionPath?: string | null, uname?: string): Platform {
+    // Explicit arguments override host environment so detection is testable
+    const hasExplicitArgs = procVersionPath !== undefined || uname !== undefined;
+
     // Priority 1: Check WSL_DISTRO_NAME environment variable
-    if (process.env.WSL_DISTRO_NAME) {
+    if (!hasExplicitArgs && process.env.WSL_DISTRO_NAME) {
       return "wsl";
     }
 
-    // Priority 2: Check /proc/version if provided or exists
-    const versionPath = procVersionPath ?? "/proc/version";
+    // Priority 2: Check /proc/version if provided or exists (null skips this check)
+    const versionPath = procVersionPath === undefined ? "/proc/version" : procVersionPath;
     try {
       let versionContent = "";
 
@@ -60,7 +63,7 @@ export class ConfigManager {
     }
 
     // Priority 3: Check uname output or provided parameter
-    const platform = uname || process.platform;
+    const platform = (uname || process.platform).toLowerCase();
     if (platform === "darwin") {
       return "macos";
     }
