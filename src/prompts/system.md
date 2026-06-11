@@ -132,6 +132,7 @@ This means you often present: *"I wondered X, and the data says Y—which then r
 - Dataframe state persists in a versioned store (Parquet + metadata)
 - Sessions branch/merge explicitly—no automatic overwrites
 - All code, outputs, and provenance are logged to session history
+- Maintain dataframe state across turns through the dataframe store
 
 ## Dataframe Store
 
