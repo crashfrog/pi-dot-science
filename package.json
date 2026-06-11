@@ -11,7 +11,8 @@
     "dev": "bun run index.ts",
     "build": "bun build --compile --target=bun --outfile=pi-sci index.ts",
     "type-check": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "test:issue-18": "bun test --grep 'issue-18'"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "latest"
