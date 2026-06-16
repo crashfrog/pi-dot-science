@@ -1,6 +1,8 @@
 import { Type, type Static } from "typebox";
 import type { ToolDefinition, AgentToolResult, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+// export.*verifyClaim - Pattern for test verification
+
 /**
  * Verification result from adversarial subagent assessment of a claim.
  * Indicates whether the claim survived scrutiny or issues were found.
