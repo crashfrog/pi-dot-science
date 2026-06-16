@@ -8,6 +8,8 @@ export type Platform = "wsl" | "native-linux" | "macos";
 
 export interface Config {
   platform: Platform;
+  doltBin?: string;
+  doltPort?: number;
 }
 
 export class ConfigManager {
@@ -156,6 +158,62 @@ export class ConfigManager {
     const fileDir = path.dirname(filePath);
     fs.mkdirSync(fileDir, { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  }
+
+  // Get dolt binary path with priority: env > config file > "dolt"
+  getDoltBin(): string {
+    // Priority 1: Environment variable
+    const envBin = process.env.PI_SCIENCE_DOLT_BIN;
+    if (envBin && envBin.trim()) {
+      return envBin;
+    }
+
+    // Priority 2: Config file
+    try {
+      if (fs.existsSync(this.configPath)) {
+        const config = this.loadConfig();
+        if (config.doltBin && config.doltBin.trim()) {
+          return config.doltBin;
+        }
+      }
+    } catch {
+      // Fall through to default
+    }
+
+    // Default: "dolt"
+    return "dolt";
+  }
+
+  // Get dolt port with priority: env > config file > 3306
+  // Validates port is in range 1-65535
+  getDoltPort(): number {
+    // Priority 1: Environment variable
+    const envPort = process.env.PI_SCIENCE_DOLT_PORT;
+    if (envPort) {
+      const parsed = parseInt(envPort, 10);
+      if (!isNaN(parsed) && parsed > 0 && parsed < 65536) {
+        return parsed;
+      }
+      // If invalid, fall back to next priority
+    }
+
+    // Priority 2: Config file
+    try {
+      if (fs.existsSync(this.configPath)) {
+        const config = this.loadConfig();
+        if (config.doltPort !== undefined && config.doltPort !== null) {
+          if (config.doltPort > 0 && config.doltPort < 65536) {
+            return config.doltPort;
+          }
+          // If invalid in config, fall back to default
+        }
+      }
+    } catch {
+      // If config loading fails, fall through to default
+    }
+
+    // Default: 3306
+    return 3306;
   }
 }
 
