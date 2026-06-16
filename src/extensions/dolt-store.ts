@@ -224,28 +224,6 @@ export class DoltStore {
         return Array.isArray(result) ? result : [];
       }
 
-      // Use prepared statement with parameters
-      // Build parameterized query dynamically
-      let queryStr = sql;
-      const templateParts: string[] = [];
-      let paramIndex = 0;
-      let charIndex = 0;
-
-      // Parse SQL for ? placeholders and build template string for Bun SQL
-      while (charIndex < sql.length) {
-        const questionIdx = sql.indexOf("?", charIndex);
-        if (questionIdx === -1) {
-          templateParts.push(sql.slice(charIndex));
-          break;
-        }
-        templateParts.push(sql.slice(charIndex, questionIdx));
-        templateParts.push("${params[" + paramIndex + "]}");
-        paramIndex++;
-        charIndex = questionIdx + 1;
-      }
-
-      // For prepared statements, use the Bun SQL template feature
-      // Since we can't use template literals directly, use unsafe with proper escaping.
       // Replace each ? in order (left-to-right) with the corresponding param value.
       let escapedSql = sql;
       for (let i = 0; i < params.length; i++) {
@@ -439,43 +417,14 @@ export class DoltStore {
     // Delete provenance records
     await this.query(`DELETE FROM _provenance WHERE df_name = ?`, [name]);
 
-    // Make a commit
-    await this.commit(`clear_dataframe(${name})`);
-  }
-
-  /**
-   * Open a new session by creating a branch named session-<sessionId>
-   * Returns the sessionId
-   */
-  async openSession(): Promise<string> {
-    const sessionId = crypto.randomUUID();
-    const branchName = `session-${sessionId}`;
-
+    // Make a commit (skip if nothing changed — e.g., nonexistent dataframe)
     try {
-      // Create a new branch for this session
-      await this.sqlClient.unsafe(`CALL DOLT_CHECKOUT('-b', '${branchName}')`);
-    } catch (error) {
-      throw new Error(`Failed to create session branch: ${error}`);
-    }
-
-    return sessionId;
-  }
-
-  /**
-   * Merge the current session branch back to main
-   * Call this in session_end handler
-   */
-  async mergeToMain(sessionId: string): Promise<void> {
-    const branchName = `session-${sessionId}`;
-
-    try {
-      // Switch to main branch
-      await this.sqlClient.unsafe(`CALL DOLT_CHECKOUT('main')`);
-
-      // Merge the session branch into main
-      await this.sqlClient.unsafe(`CALL DOLT_MERGE('${branchName}')`);
-    } catch (error) {
-      throw new Error(`Failed to merge session to main: ${error}`);
+      await this.commit(`clear_dataframe(${name})`);
+    } catch (e: any) {
+      const msg = String(e?.message ?? "");
+      if (!msg.includes("nothing to commit") && !msg.includes("no changes")) {
+        throw e;
+      }
     }
   }
 
