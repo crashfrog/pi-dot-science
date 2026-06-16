@@ -9,12 +9,27 @@ export interface ProvenanceRecord {
   source: string;
   source_code: string;
   immutable?: boolean;
+  created_at?: string | Date;
 }
 
 export interface CommitLogEntry {
   commit_hash: string;
   message: string;
   author: string;
+}
+
+export interface SchemaInfo {
+  columns: string[];
+  dtypes: Record<string, string>;
+}
+
+export interface DataframeEntry {
+  name: string;
+  columns: string[];
+  dtypes: Record<string, string>;
+  shape: [number, number];
+  sampleRow: Record<string, any> | null;
+  provenance: ProvenanceRecord[];
 }
 
 export class DoltStore {
@@ -77,10 +92,17 @@ export class DoltStore {
    */
   async getProvenance(df_name: string): Promise<ProvenanceRecord[]> {
     const result = await this.query(
-      `SELECT df_name, seq, source, source_code, immutable FROM _provenance WHERE df_name = ? ORDER BY seq`,
+      `SELECT df_name, seq, source, source_code, created_at, immutable FROM _provenance WHERE df_name = ? ORDER BY seq`,
       [df_name]
     );
-    return result as ProvenanceRecord[];
+    return (result as any[]).map((row) => ({
+      df_name: row.df_name,
+      seq: row.seq,
+      source: row.source,
+      source_code: row.source_code,
+      created_at: row.created_at,
+      immutable: row.immutable === 1 || row.immutable === true,
+    }));
   }
 
   /**
@@ -185,6 +207,187 @@ export class DoltStore {
     } catch (error) {
       throw error;
     }
+  }
+
+  /**
+   * Get schema information (columns and dtypes) from information_schema
+   * Returns null if table doesn't exist
+   */
+  async getSchema(name: string): Promise<SchemaInfo | null> {
+    const result = await this.query(
+      `SELECT COLUMN_NAME, DATA_TYPE
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = 'pi_science' AND TABLE_NAME = ? AND COLUMN_NAME != '__row_id'
+       ORDER BY ORDINAL_POSITION`,
+      [name]
+    );
+
+    if (!Array.isArray(result) || result.length === 0) {
+      return null;
+    }
+
+    const columns = (result as any[]).map((r) => r.COLUMN_NAME);
+    const dtypes: Record<string, string> = {};
+
+    for (const row of result as any[]) {
+      dtypes[row.COLUMN_NAME] = this.mysqlTypeToDtype(row.DATA_TYPE);
+    }
+
+    return { columns, dtypes };
+  }
+
+  /**
+   * Convert MySQL data type to Python/NumPy dtype string
+   */
+  private mysqlTypeToDtype(mysqlType: string): string {
+    const typeUpper = mysqlType.toUpperCase();
+
+    if (typeUpper === "BIGINT") return "int64";
+    if (typeUpper === "DOUBLE") return "float64";
+    if (typeUpper === "TINYINT" || typeUpper === "BOOLEAN" || typeUpper === "BOOL")
+      return "bool";
+    if (typeUpper.includes("DATETIME")) return "datetime64[ns]";
+    if (
+      typeUpper === "TEXT" ||
+      typeUpper === "LONGTEXT" ||
+      typeUpper.includes("VARCHAR") ||
+      typeUpper === "MEDIUMTEXT"
+    )
+      return "object";
+
+    // Default to object for unknown types
+    return "object";
+  }
+
+  /**
+   * Get full dataframe entry with metadata and provenance
+   * Returns null if table doesn't exist
+   */
+  async getDataframe(name: string): Promise<DataframeEntry | null> {
+    const schema = await this.getSchema(name);
+    if (!schema) {
+      return null;
+    }
+
+    // Get row count
+    const countResult = await this.query(
+      `SELECT COUNT(*) as cnt FROM \`${name}\``
+    );
+    const rowCount =
+      Array.isArray(countResult) && countResult.length > 0
+        ? (countResult[0] as any).cnt
+        : 0;
+
+    // Get sample row (first row, excluding __row_id)
+    const sampleResult = await this.query(
+      `SELECT * FROM \`${name}\` LIMIT 1`
+    );
+    let sampleRow: Record<string, any> | null = null;
+
+    if (Array.isArray(sampleResult) && sampleResult.length > 0) {
+      const fullRow = sampleResult[0] as any;
+      sampleRow = { ...fullRow };
+      delete sampleRow.__row_id;
+    }
+
+    // Get provenance
+    const provenance = await this.getProvenance(name);
+
+    const shape: [number, number] = [rowCount, schema.columns.length];
+
+    return {
+      name,
+      columns: schema.columns,
+      dtypes: schema.dtypes,
+      shape,
+      sampleRow,
+      provenance,
+    };
+  }
+
+  /**
+   * List all dataframes in the database (excluding _provenance table)
+   * Returns array of DataframeEntry objects with metadata
+   */
+  async listDataframes(): Promise<DataframeEntry[]> {
+    const result = await this.query(
+      `SELECT TABLE_NAME FROM information_schema.TABLES
+       WHERE TABLE_SCHEMA = 'pi_science' AND TABLE_NAME != '_provenance'`
+    );
+
+    if (!Array.isArray(result) || result.length === 0) {
+      return [];
+    }
+
+    const entries: DataframeEntry[] = [];
+
+    for (const row of result as any[]) {
+      const tableName = row.TABLE_NAME;
+      const entry = await this.getDataframe(tableName);
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+
+    return entries;
+  }
+
+  /**
+   * Get source_code strings in seq order for replay
+   * Returns empty array if no provenance exists
+   */
+  async replayTransformations(name: string): Promise<string[]> {
+    const result = await this.query(
+      `SELECT source_code FROM _provenance WHERE df_name = ? ORDER BY seq ASC`,
+      [name]
+    );
+
+    if (!Array.isArray(result) || result.length === 0) {
+      return [];
+    }
+
+    return (result as any[]).map((row) => row.source_code);
+  }
+
+  /**
+   * Check if a dataframe is immutable (based on latest provenance record)
+   * Returns false if no provenance exists
+   */
+  async isImmutable(name: string): Promise<boolean> {
+    const result = await this.query(
+      `SELECT immutable FROM _provenance WHERE df_name = ? ORDER BY seq DESC LIMIT 1`,
+      [name]
+    );
+
+    if (!Array.isArray(result) || result.length === 0) {
+      return false;
+    }
+
+    const immutable = (result[0] as any).immutable;
+    return immutable === 1 || immutable === true;
+  }
+
+  /**
+   * Clear a dataframe: drop table, remove provenance, make commit
+   * Throws if dataframe is immutable
+   */
+  async clearDataframe(name: string): Promise<void> {
+    // Check if immutable
+    const immut = await this.isImmutable(name);
+    if (immut) {
+      throw new Error(
+        `Cannot clear immutable dataframe '${name}'`
+      );
+    }
+
+    // Drop the table
+    await this.query(`DROP TABLE IF EXISTS \`${name}\``);
+
+    // Delete provenance records
+    await this.query(`DELETE FROM _provenance WHERE df_name = ?`, [name]);
+
+    // Make a commit
+    await this.commit(`clear_dataframe(${name})`);
   }
 
   /**
