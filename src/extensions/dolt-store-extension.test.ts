@@ -17,16 +17,16 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Extension factory function", () => {
-    it("should export doltStoreExtension function", () => {
+    it("should export doltStoreExtension function", async () => {
       // The extension module should export doltStoreExtension
       const extPath = "src/extensions/dolt-store-extension.ts";
-      expect(Bun.file(extPath).exists()).toBe(true);
+      expect(await Bun.file(extPath).exists()).toBe(true);
     });
 
     it("doltStoreExtension should accept an ExtensionAPI parameter", async () => {
       // Import the extension
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Should be a function
@@ -38,7 +38,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("doltStoreExtension should be named doltStoreExtension", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       expect(doltStoreExtension.name).toBe("doltStoreExtension");
@@ -48,7 +48,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Session start handler", () => {
     it("should register a session_start listener with the pi instance", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock ExtensionAPI with on() method
@@ -73,7 +73,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_start handler should call DoltServerManager.ensureRunning()", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock DoltServerManager
@@ -105,7 +105,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_start handler should set PI_SCIENCE_DOLT_PORT env var", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -127,7 +127,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_start handler should set PI_SCIENCE_DOLT_DB env var", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -151,7 +151,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Session end handler", () => {
     it("should register a session_end listener with the pi instance", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock ExtensionAPI with on() method
@@ -176,7 +176,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_end handler should call store.mergeToMain(sessionId)", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -198,7 +198,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_end handler should call serverManager.shutdownIfIdle()", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -222,7 +222,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("DoltServerManager and DoltStore integration", () => {
     it("session_start should call DoltServerManager.ensureRunning with project directory", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -243,7 +243,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_start should call DoltStore.initialize()", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -264,7 +264,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("session_start should call DoltStore.openSession()", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -287,7 +287,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Environment variable exports", () => {
     it("PI_SCIENCE_DOLT_PORT should be set to the port returned by ensureRunning", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -309,7 +309,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("PI_SCIENCE_DOLT_DB should be set to pi_science/session-<sessionId>", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -333,7 +333,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Python subprocess seam", () => {
     it("environment variables should be available to Python subprocess via process.env", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -357,7 +357,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
   describe("Server lifecycle management", () => {
     it("session_end handler should use the serverManager stored in session context", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler
@@ -379,7 +379,7 @@ describe("issue-32: Dolt Store Extension Wiring", () => {
 
     it("shutdownIfIdle should only shutdown if this session was the one that spawned the server", async () => {
       const { doltStoreExtension } = await import(
-        "../src/extensions/dolt-store-extension.js"
+        "./dolt-store-extension.js"
       );
 
       // Create a mock that captures the registered handler

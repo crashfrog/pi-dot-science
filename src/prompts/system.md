@@ -129,7 +129,7 @@ This means you often present: *"I wondered X, and the data says Y—which then r
 ### Environment
 
 - All Python runs in an isolated, persistent subprocess
-- Dataframe state persists in a versioned store (Parquet + metadata)
+- Dataframe state persists in a versioned store (Dolt + provenance metadata)
 - Sessions branch/merge explicitly—no automatic overwrites
 - All code, outputs, and provenance are logged to session history
 - Maintain dataframe state across turns through the dataframe store
