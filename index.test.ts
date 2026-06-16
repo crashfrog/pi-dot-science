@@ -383,3 +383,162 @@ describe("issue-2", () => {
     });
   });
 });
+
+/**
+ * Acceptance tests for GitHub Issue #17: Verification loop integration
+ *
+ * Run with: bun test --grep "issue-17"
+ *
+ * These tests verify all acceptance criteria:
+ * - [AC1] verify_claim tool is registered with the main agent session
+ * - [AC2] System prompt instructs agent to self-tag causal/predictive claims
+ * - [AC3] System prompt instructs agent to call verify_claim before reporting tagged claims
+ * - [AC4] System prompt defines revision behavior on issues-found
+ * - [AC5] System prompt defines reporting behavior on claim-survives
+ * - [AC6] Descriptive claims are explicitly excluded from verification
+ *
+ * Tests deliberately cover the feature specification WITHOUT implementing the feature itself.
+ * The tests SHOULD FAIL until the implementation agent completes the work.
+ */
+describe("issue-17", () => {
+  describe("verify_claim tool registration in index.ts", () => {
+    it("should import verifyClaimTool from verify-claim.js", () => {
+      const indexPath = resolve("index.ts");
+      const indexContent = readFileSync(indexPath, "utf-8");
+      expect(indexContent).toContain("verifyClaimTool");
+      expect(indexContent).toContain("verify-claim");
+    });
+
+    it("should pass customTools array to main() with verifyClaimTool", () => {
+      const indexPath = resolve("index.ts");
+      const indexContent = readFileSync(indexPath, "utf-8");
+      expect(indexContent).toContain("customTools");
+      expect(indexContent).toContain("verifyClaimTool");
+      expect(indexContent).toMatch(/customTools\s*:\s*\[\s*verifyClaimTool/);
+    });
+
+    it("should invoke main with customTools parameter in options", () => {
+      const indexPath = resolve("index.ts");
+      const indexContent = readFileSync(indexPath, "utf-8");
+      // Should have a main() call with customTools in the second argument
+      expect(indexContent).toMatch(
+        /await\s+main\(\s*\[.*?\]\s*,\s*\{\s*[^}]*customTools[^}]*\}\s*\)/s
+      );
+    });
+
+    it("verifyClaimTool should be exported from verify-claim.ts", () => {
+      const verifyclaimPath = resolve("src/extensions/verify-claim.ts");
+      const verifyclaimContent = readFileSync(verifyclaimPath, "utf-8");
+      expect(verifyclaimContent).toContain("export const verifyClaimTool");
+      expect(verifyclaimContent).toContain("ToolDefinition");
+    });
+  });
+
+  describe("System prompt instructions for claim verification", () => {
+    it("should document verify_claim tool name in system prompt", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toContain("verify_claim");
+    });
+
+    it("should instruct agent to use claim type markers before calling verify_claim", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toContain("<claim");
+      expect(promptContent).toContain("type=");
+    });
+
+    it("should specify verify_claim should be called for causal claims", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toMatch(/type=.*causal/);
+    });
+
+    it("should specify verify_claim should be called for predictive claims", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toMatch(/type=.*predictive/);
+    });
+
+    it("should document behavior when verdict is issues-found", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toContain("issues-found");
+      // Should describe what to do when issues are found
+      expect(promptContent).toMatch(/issues-found.*[rR]evise/);
+    });
+
+    it("should document behavior when verdict is claim-survives", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toContain("claim-survives");
+      // Should describe reporting with confidence note
+      expect(promptContent).toMatch(/claim-survives.*report|confidence/i);
+    });
+
+    it("should explicitly state descriptive claims do not require verify_claim", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toMatch(
+        /descriptive.*do not|not.*descriptive|descriptive.*excluded/i
+      );
+    });
+
+    it("should clarify mean, count, correlation are descriptive claims", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toMatch(/mean.*descriptive|descriptive.*mean/i);
+    });
+
+    it("should contrast descriptive vs causal/predictive verification requirement", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      // Should distinguish: descriptive claims self-evident, causal/predictive need verification
+      expect(promptContent).toMatch(/descriptive.*code.*enough/i);
+    });
+  });
+
+  describe("verify_claim tool definition", () => {
+    it("verify-claim.ts should export VerificationResult interface", () => {
+      const verifyclaimPath = resolve("src/extensions/verify-claim.ts");
+      const verifyclaimContent = readFileSync(verifyclaimPath, "utf-8");
+      expect(verifyclaimContent).toContain("VerificationResult");
+    });
+
+    it("verify-claim.ts should export verifyClaim function", () => {
+      const verifyclaimPath = resolve("src/extensions/verify-claim.ts");
+      const verifyclaimContent = readFileSync(verifyclaimPath, "utf-8");
+      expect(verifyclaimContent).toContain("export.*verifyClaim");
+    });
+
+    it("verifyClaimTool should have name 'verify_claim'", () => {
+      const verifyclaimPath = resolve("src/extensions/verify-claim.ts");
+      const verifyclaimContent = readFileSync(verifyclaimPath, "utf-8");
+      expect(verifyclaimContent).toContain('name: "verify_claim"');
+    });
+
+    it("verifyClaimTool should accept claim and code parameters", () => {
+      const verifyclaimPath = resolve("src/extensions/verify-claim.ts");
+      const verifyclaimContent = readFileSync(verifyclaimPath, "utf-8");
+      expect(verifyclaimContent).toMatch(/claim.*String/);
+      expect(verifyclaimContent).toMatch(/code.*String/);
+    });
+  });
+
+  describe("System prompt workflow for verification", () => {
+    it("should document full workflow including verify_claim call", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      expect(promptContent).toContain("Workflow");
+      // Workflow should mention verification for causal/predictive
+      expect(promptContent).toMatch(/workflow.*verify|verify.*workflow/i);
+    });
+
+    it("should show example of claim with type marker before verify_claim", () => {
+      const promptPath = resolve("src/prompts/system.md");
+      const promptContent = readFileSync(promptPath, "utf-8");
+      // Should have example showing <claim type=...> usage
+      expect(promptContent).toMatch(/<claim/);
+    });
+  });
+});
