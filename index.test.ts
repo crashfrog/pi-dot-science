@@ -89,7 +89,7 @@ describe("issue-2", () => {
     it("should import ImageRenderer extension", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("ImageRenderer");
+      expect(indexContent).toContain("imageRendererExtension");
       expect(indexContent).toContain("image-renderer");
     });
 
@@ -130,10 +130,10 @@ describe("issue-2", () => {
       expect(indexContent).toContain("doltStoreExtension");
     });
 
-    it("should instantiate ImageRenderer", () => {
+    it("should wire up imageRendererExtension", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("ImageRenderer");
+      expect(indexContent).toContain("imageRendererExtension");
     });
 
     it("DoltStoreExtension should be defined and properly exported", () => {

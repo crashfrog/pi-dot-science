@@ -134,25 +134,40 @@ export class DoltServerManager {
   /**
    * Shutdown the server if this instance spawned it.
    * Only kills the process if this DoltServerManager instance spawned it.
+   * Waits for the process to actually exit before returning.
    */
   async shutdownIfIdle(): Promise<void> {
-    if (this.spawned && this.spawnedPid !== undefined) {
+    if (!this.spawned || this.spawnedPid === undefined) return;
+    const pid = this.spawnedPid;
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      return; // already dead
+    }
+    // Wait up to 3s for graceful shutdown
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 100));
       try {
-        // Kill by PID - process.kill sends SIGTERM by default
-        process.kill(this.spawnedPid);
+        process.kill(pid, 0); // 0 = check existence
       } catch {
-        // Process already dead or permission denied
+        return; // process exited
       }
     }
+    // Force-kill if still alive after 3s
+    try { process.kill(pid, "SIGKILL"); } catch {}
   }
 
   /**
-   * Check if server is healthy by attempting SELECT 1 via MySQL
+   * Check if server is healthy by attempting SELECT 1 via MySQL.
+   * Races against a 1s timeout so stale/non-responsive ports fail fast.
    */
   private async isServerHealthy(port: number): Promise<boolean> {
     try {
       const sql = new SQL(`mysql://root@localhost:${port}/mysql`);
-      await sql`SELECT 1`;
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 1000)
+      );
+      await Promise.race([sql`SELECT 1`, timeout]);
       return true;
     } catch {
       return false;
@@ -160,17 +175,20 @@ export class DoltServerManager {
   }
 
   /**
-   * Check if a port is free (not in use)
+   * Check if a port is free (not in use).
+   * Races against a 1s timeout so the probe never hangs.
    */
   private async isPortFree(port: number): Promise<boolean> {
     try {
-      // Try to connect to the port - if it fails, port is free
       const sql = new SQL(`mysql://root@localhost:${port}/mysql`);
-      await sql`SELECT 1`;
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 1000)
+      );
+      await Promise.race([sql`SELECT 1`, timeout]);
       // If we got here, port is in use
       return false;
     } catch {
-      // Port is free
+      // Port is free (or timed out — treated as free since Dolt isn't responding)
       return true;
     }
   }

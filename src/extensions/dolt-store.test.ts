@@ -1130,6 +1130,15 @@ describe.skipIf(!isDoltInstalled)("issue-29: DoltStore metadata/read API", () =>
     beforeEach(async () => {
       store = new DoltStore(port);
       await store.initialize();
+      // Drop any tables from previous tests for isolation
+      const tables = await store.query(
+        `SELECT TABLE_NAME FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = 'pi_science' AND TABLE_NAME != '_provenance'`
+      );
+      for (const row of tables as any[]) {
+        await store.query(`DROP TABLE IF EXISTS \`${row.TABLE_NAME}\``);
+      }
+      await store.query(`DELETE FROM _provenance`);
     });
 
     it("listDataframes returns empty array when no dataframes exist", async () => {
@@ -1368,6 +1377,15 @@ describe.skipIf(!isDoltInstalled)("issue-29: DoltStore metadata/read API", () =>
     beforeEach(async () => {
       store = new DoltStore(port);
       await store.initialize();
+      // Drop any tables from previous tests for isolation
+      const tables = await store.query(
+        `SELECT TABLE_NAME FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = 'pi_science' AND TABLE_NAME != '_provenance'`
+      );
+      for (const row of tables as any[]) {
+        await store.query(`DROP TABLE IF EXISTS \`${row.TABLE_NAME}\``);
+      }
+      await store.query(`DELETE FROM _provenance`);
     });
 
     it("clearDataframe drops the table", async () => {

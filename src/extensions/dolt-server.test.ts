@@ -179,7 +179,7 @@ describe.skipIf(!isDoltInstalled)("issue-28: DoltServerManager", () => {
       const port = result.port;
 
       // Shutdown should complete without error
-      await expect(serverManager.shutdownIfIdle()).resolves.not.toThrow();
+      await expect(serverManager.shutdownIfIdle()).resolves.toBeUndefined();
 
       // After shutdown, the descriptor should be removed or invalidated
       const descriptorPath = path.join(projectDir, ".pi-science", "dolt", "server.json");
