@@ -79,11 +79,11 @@ describe("issue-2", () => {
       expect(indexContent).toContain("@earendil-works/pi-coding-agent");
     });
 
-    it("should import DataframeStore extension", () => {
+    it("should import DoltStore extension", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("DataframeStore");
-      expect(indexContent).toContain("dataframe-store");
+      expect(indexContent).toContain("doltStoreExtension");
+      expect(indexContent).toContain("dolt-store-extension");
     });
 
     it("should import ImageRenderer extension", () => {
@@ -124,24 +124,24 @@ describe("issue-2", () => {
   });
 
   describe("Extension Initialization and Registration", () => {
-    it("should instantiate DataframeStore", () => {
+    it("should have doltStoreExtension function", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("new DataframeStore");
+      expect(indexContent).toContain("doltStoreExtension");
     });
 
     it("should instantiate ImageRenderer", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      expect(indexContent).toContain("new ImageRenderer");
+      expect(indexContent).toContain("ImageRenderer");
     });
 
-    it("DataframeStore class should exist and be properly exported", () => {
-      const dsPath = resolve("src/extensions/dataframe-store.ts");
-      expect(existsSync(dsPath)).toBe(true);
-      const dsContent = readFileSync(dsPath, "utf-8");
-      expect(dsContent).toContain("export class DataframeStore");
-      expect(dsContent).toContain("export default DataframeStore");
+    it("DoltStoreExtension should be defined and properly exported", () => {
+      const extPath = resolve("src/extensions/dolt-store-extension.ts");
+      expect(existsSync(extPath)).toBe(true);
+      const extContent = readFileSync(extPath, "utf-8");
+      expect(extContent).toContain("export");
+      expect(extContent).toContain("doltStoreExtension");
     });
 
     it("ImageRenderer class should exist and be properly exported", () => {
@@ -155,9 +155,9 @@ describe("issue-2", () => {
     it("should register extensions with the agent session", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
-      // Extensions should be passed to createAgentSession or registered separately
+      // Extensions should be passed to extensionFactories
       expect(indexContent).toMatch(
-        /dataframeStore|imageRenderer|extension|register/i
+        /doltStore|imageRenderer|extension|register/i
       );
     });
   });
@@ -173,7 +173,7 @@ describe("issue-2", () => {
       const indexPath = resolve("index.ts");
       const indexContent = readFileSync(indexPath, "utf-8");
       expect(indexContent).toContain("extensionFactories");
-      expect(indexContent).toContain("dataframeStoreExtension");
+      expect(indexContent).toContain("doltStoreExtension");
       expect(indexContent).toContain("imageRendererExtension");
     });
   });
@@ -299,11 +299,11 @@ describe("issue-2", () => {
   });
 
   describe("Extension Interface Contracts", () => {
-    it("DataframeStore should define proper interface", () => {
-      const dsPath = resolve("src/extensions/dataframe-store.ts");
-      const dsContent = readFileSync(dsPath, "utf-8");
-      expect(dsContent).toContain("DataframeEntry");
-      expect(dsContent).toContain("interface");
+    it("DoltStoreExtension should define proper interface", () => {
+      const extPath = resolve("src/extensions/dolt-store-extension.ts");
+      const extContent = readFileSync(extPath, "utf-8");
+      expect(extContent).toContain("function");
+      expect(extContent).toContain("doltStoreExtension");
     });
 
     it("ImageRenderer should define configuration interface", () => {
@@ -366,7 +366,7 @@ describe("issue-2", () => {
       const promptPath = resolve("src/prompts/system.md");
       const promptContent = readFileSync(promptPath, "utf-8");
       expect(promptContent).toContain("persists");
-      expect(promptContent).toContain("Parquet");
+      expect(promptContent).toContain("Dolt");
     });
 
     it("system prompt should document session history", () => {

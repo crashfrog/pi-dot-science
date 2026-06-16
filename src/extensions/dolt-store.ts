@@ -57,9 +57,9 @@ export class DoltStore {
   /** @internal — public for getSessionStore() branch-connection setup only */
   connectionString: string;
 
-  constructor(port: number) {
+  constructor(port: number, database: string = "pi_science") {
     this.port = port;
-    this.connectionString = `mysql://root@localhost:${port}/pi_science`;
+    this.connectionString = `mysql://root@localhost:${port}/${database}`;
   }
 
   /**
@@ -75,20 +75,19 @@ export class DoltStore {
   /**
    * Initialize the database and _provenance table
    * - CREATE DATABASE IF NOT EXISTS pi_science
-   * - USE pi_science
    * - CREATE TABLE IF NOT EXISTS _provenance (df_name, seq, source, source_code, created_at, immutable; PK: df_name, seq)
    */
   async initialize(): Promise<void> {
     // First, connect to the 'mysql' database to create pi_science
-    this.connectionString = `mysql://root@localhost:${this.port}/mysql`;
-    this.sqlClient = new SQL(this.connectionString);
+    const bootstrapString = `mysql://root@localhost:${this.port}/mysql`;
+    this.sqlClient = new SQL(bootstrapString);
 
     // Create database
     await this.query(`CREATE DATABASE IF NOT EXISTS pi_science`);
 
-    // Now reconnect to pi_science
-    this.connectionString = `mysql://root@localhost:${this.port}/pi_science`;
+    // Now reconnect to the target database
     this.sqlClient = new SQL(this.connectionString);
+
 
     // Create _provenance table
     await this.query(`
@@ -442,6 +441,42 @@ export class DoltStore {
 
     // Make a commit
     await this.commit(`clear_dataframe(${name})`);
+  }
+
+  /**
+   * Open a new session by creating a branch named session-<sessionId>
+   * Returns the sessionId
+   */
+  async openSession(): Promise<string> {
+    const sessionId = crypto.randomUUID();
+    const branchName = `session-${sessionId}`;
+
+    try {
+      // Create a new branch for this session
+      await this.sqlClient.unsafe(`CALL DOLT_CHECKOUT('-b', '${branchName}')`);
+    } catch (error) {
+      throw new Error(`Failed to create session branch: ${error}`);
+    }
+
+    return sessionId;
+  }
+
+  /**
+   * Merge the current session branch back to main
+   * Call this in session_end handler
+   */
+  async mergeToMain(sessionId: string): Promise<void> {
+    const branchName = `session-${sessionId}`;
+
+    try {
+      // Switch to main branch
+      await this.sqlClient.unsafe(`CALL DOLT_CHECKOUT('main')`);
+
+      // Merge the session branch into main
+      await this.sqlClient.unsafe(`CALL DOLT_MERGE('${branchName}')`);
+    } catch (error) {
+      throw new Error(`Failed to merge session to main: ${error}`);
+    }
   }
 
   /**

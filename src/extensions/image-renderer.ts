@@ -1,5 +1,6 @@
 import type { Platform } from "./platform-config";
 import type { TerminalCapabilities } from "./capability-detector";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TerminalCapabilityDetector } from "./capability-detector";
 import { SixelEncoder } from "./sixel-encoder";
 import { KittyEncoder } from "./kitty-encoder";
@@ -55,6 +56,18 @@ export class ImageRenderer {
   getPlatform(): Platform {
     return this.platform;
   }
+}
+
+/**
+ * Extension factory that wires ImageRenderer into the pi-coding-agent
+ */
+export function imageRendererExtension(pi: ExtensionAPI): void {
+  const renderer = new ImageRenderer();
+
+  pi.on("session_start", () => {
+    // Phase 5: detect terminal capabilities and register image rendering hook
+    void renderer;
+  });
 }
 
 export default ImageRenderer;
