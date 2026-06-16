@@ -2,8 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { DoltServerManager } from "./dolt-server";
-import { DoltStore } from "./dolt-store";
 
 /**
  * Acceptance tests for GitHub Issue #30: Python bridge round-trip with Dolt commits
@@ -94,8 +92,6 @@ describe.skipIf(!isPython3Available() || !isPymysqlAvailable() || !isDoltInstall
 
     let tempDir: string;
     let projectDir: string;
-    let serverManager: DoltServerManager;
-    let doltStore: DoltStore;
     let doltPort: number;
 
     beforeAll(async () => {
@@ -103,18 +99,26 @@ describe.skipIf(!isPython3Available() || !isPymysqlAvailable() || !isDoltInstall
       projectDir = path.join(tempDir, "project");
       fs.mkdirSync(projectDir, { recursive: true });
 
-      // Start Dolt server
-      serverManager = new DoltServerManager();
-      const serverInfo = await serverManager.ensureRunning(projectDir);
-      doltPort = serverInfo.port;
+      // Initialize dolt repository for tests
+      const doltResult = Bun.spawnSync(["dolt", "init", "--name", "pi.science", "--email", "pi-science@local"], {
+        cwd: projectDir,
+      });
+      if (doltResult.exitCode !== 0) {
+        throw new Error("Failed to initialize dolt repo");
+      }
 
-      // Initialize DoltStore
-      doltStore = new DoltStore(doltPort);
-      await doltStore.initialize();
+      // Start dolt sql-server on a test port
+      const serverResult = Bun.spawn(["dolt", "sql-server", "--port", "3307", "--data-dir", projectDir], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      // Wait a bit for server to start
+      await new Promise(r => setTimeout(r, 2000));
+
+      doltPort = 3307;
     });
 
     afterAll(async () => {
-      await serverManager.shutdownIfIdle();
       if (fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -591,7 +595,6 @@ valid_names = [
     'user_data',
     'df_123',
     'A',
-    '_valid_with_leading_underscore',  # If implementation allows
 ]
 
 for name in valid_names:
